@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Arcs</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            background-color: #F2EFEA;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        const mapCenter = [-0.5, 51.8];
+
+        // please use your own token!
+        mapboxgl.accessToken = 'pk.eyJ1Ijoid2lsbGlhbS1kYXZpcyIsImEiOiJja2tiYWtvbWcwMmtzMnBvajh3M2kxZGRuIn0.GeROaHKn2Gbvsg1e8buJEw';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/light-v11',
+            center: [-10, 25],
+            zoom: 2,
+            maxZoom: 5
+        });
+
+        map.on('load', () => {
+            map.setLight({
+                intensity: 0
+            });
+            const points = turf.randomPoint(50, {
+                bbox: [-100, 0, 100, 80]
+            });
+            const mergedArray = [];
+            turf.featureEach(points, function (currentFeature, featureIndex) {
+                const arcLine = generateLine([mapCenter, currentFeature.geometry.coordinates]);
+                mergedArray.push(arcLine);
+            });
+            const flat = mergedArray.flat();
+            const arcCollection = turf.featureCollection([]);
+            arcCollection.features = flat;
+            addLine(arcCollection);
+        });
+
+        function generateLine(coords) {
+            const options = {
+                units: 'miles'
+            };
+            const buffer = 10; // line width
+            const line = turf.lineString(coords); // generate line with coords
+            const length = turf.length(line, options); // line length
+            const arcQuality = 4; // lower = more points to generate along arc and higher arcs
+            const points = length / arcQuality; // number of points based on length and quality value
+            const segment = length / points; // segment length based on number of points
+
+            const pointArray = []; // empty array to hold each point
+            const curve = 4; // value that determines when curve ends
+            let heightVal = 1; // init height
+            const maxHeight = points * points; // higher arcs based on distance/number of points
+
+            for (let i = 0; i < points; i++) {
+                const along = turf.along(line, segment * i, options);
+                const maxSegment = maxHeight / points;
+                const alongCoords = along.geometry.coordinates;
+                const newVal = (points / 2) - i;
+                if (i < (points / 2)) {
+                    const sq = (newVal * newVal) / (points / curve);
+                    heightVal = maxHeight - (maxSegment * sq);
+                } else {
+                    const val = (points / 2) + (newVal - (points / 2));
+                    const sq = (val * val) / (points / curve);
+                    heightVal = maxHeight - (maxSegment * sq);
+                }
+                const circOptions = {
+                    steps: 10,
+                    units: 'miles',
+                    properties: {
+                        'heightVal': heightVal
+                    }
+                };
+                const circle = turf.circle([alongCoords[0], alongCoords[1]], buffer, circOptions);
+                pointArray.push(circle);
+            }
+            return pointArray;
+        }
+
+        function addLine(arcs) {
+            map.addSource('arcs', {
+                'type': 'geojson',
+                'data': arcs
+            });
+
+            map.addLayer({
+                'id': 'arcLayer',
+                'type': 'fill-extrusion',
+                'source': 'arcs',
+                'paint': {
+                    'fill-extrusion-color': [
+                        'interpolate',
+                        ['linear'],
+                        ['get', 'heightVal'],
+                        0,
+                        '#f768a1',
+                        200000,
+                        '#c51b8a',
+                        400000,
+                        '#7a0177'
+                    ],
+                    'fill-extrusion-opacity': 1,
+                    // 'fill-extrusion-base': 0,
+                    'fill-extrusion-base': [
+                        'case',
+                        ['<', ['get', 'heightVal'], 8000],
+                        8000,
+                        ['-', ['*', ['get', 'heightVal'], 1.5], 8000]
+                    ],
+                    'fill-extrusion-height': ['*', ['get', 'heightVal'], 1.5]
+                }
+            }, 'road-label-simple');
+        }
+    </script>
+</body>
+
+</html>
