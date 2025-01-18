@@ -5,8 +5,8 @@
     <meta charset="utf-8">
     <title>Arcs</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
-    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@5.0.1/dist/maplibre-gl.css' />
+    <script src='https://unpkg.com/maplibre-gl@5.0.1/dist/maplibre-gl.js'></script>
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
     <style>
         body {
@@ -19,7 +19,7 @@
             top: 0;
             bottom: 0;
             width: 100%;
-            background-color: #F2EFEA;
+            background-color: #111;
         }
     </style>
 </head>
@@ -29,11 +29,27 @@
     <script>
         const mapCenter = [-0.5, 51.8];
 
+        const style = {
+            version: 8,
+            sources: {},
+            layers: [
+                {
+                    "id": "background",
+                    "type": "background",
+                    "paint": {
+                        "background-color": "#121212"
+                    }
+                }
+            ],
+            projection: {
+                type: 'globe'
+            }
+        }
+
         // please use your own token!
-        mapboxgl.accessToken = 'pk.eyJ1Ijoid2lsbGlhbS1kYXZpcyIsImEiOiJja2tiYWtvbWcwMmtzMnBvajh3M2kxZGRuIn0.GeROaHKn2Gbvsg1e8buJEw';
-        const map = new mapboxgl.Map({
+        const map = new maplibregl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/light-v11',
+            style,
             center: [-10, 25],
             zoom: 2,
             maxZoom: 5
@@ -43,7 +59,7 @@
             map.setLight({
                 intensity: 0
             });
-            const points = turf.randomPoint(50, {
+            const points = turf.randomPoint(60, {
                 bbox: [-100, 0, 100, 80]
             });
             const mergedArray = [];
@@ -56,6 +72,16 @@
             arcCollection.features = flat;
             addLine(arcCollection);
         });
+
+        map.on('click', () => {
+            map.easeTo({
+                center: [20, 30],
+                zoom: 3,
+                pitch: 30,
+                bearing:20,
+                duration: 10000
+            })
+        })
 
         function generateLine(coords) {
             const options = {
@@ -131,7 +157,7 @@
                     ],
                     'fill-extrusion-height': ['*', ['get', 'heightVal'], 1.5]
                 }
-            }, 'road-label-simple');
+            });
         }
     </script>
 </body>
